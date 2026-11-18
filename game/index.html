@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bahia Heat — open-world crime game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html, body { width:100%; height:100%; overflow:hidden; background:#1a0b1e; }
+  body { font-family: "Segoe UI", Verdana, Geneva, sans-serif; color:#fff; }
+  #game { position:fixed; inset:0; }
+  #game canvas { display:block; }
+  .panel { position:absolute; background:rgba(12,8,20,.72); border:1px solid rgba(255,170,80,.35);
+    border-radius:8px; padding:8px 10px; backdrop-filter: blur(2px); }
+  .label { font-size:10px; letter-spacing:2px; color:#ffb066; text-transform:uppercase; }
+  /* top-left: cash + rep + vitals */
+  #topleft { top:12px; left:12px; min-width:230px; }
+  #money { font-size:26px; font-weight:800; color:#ffd76a; line-height:1; }
+  #repRow { margin-top:6px; display:flex; align-items:center; gap:8px; }
+  #repName { font-size:12px; font-weight:700; color:#ff9d5c; white-space:nowrap; }
+  .bar { height:8px; background:#3a2438; border-radius:4px; overflow:hidden; flex:1; }
+  .bar > div { height:100%; background:linear-gradient(90deg,#ff7a2f,#ffc93c); }
+  #repText { font-size:11px; color:#e8c9ff; }
+  .vitals { margin-top:6px; display:flex; gap:10px; font-size:11px; }
+  .vitals b { color:#fff; }
+  .vitals .hp { color:#7dff8a; } .vitals .ar { color:#7dc4ff; }
+  /* top-center: mission objective */
+  #objective { top:12px; left:50%; transform:translateX(-50%); width:430px; text-align:center; }
+  #objTitle { font-size:15px; font-weight:800; color:#ffe9b0; }
+  #objStage { margin-top:5px; height:9px; background:#3a2438; border-radius:5px; overflow:hidden; }
+  #objStage > div { height:100%; background:linear-gradient(90deg,#2fd4ff,#7dff8a); width:0%; }
+  #objMeta { margin-top:4px; font-size:12px; color:#d8ecff; display:flex; justify-content:space-between; }
+  #objTimer { color:#ffd76a; font-weight:700; }
+  /* top-right: wanted + clock + location */
+  #topright { top:12px; right:12px; text-align:right; min-width:210px; }
+  #stars { font-size:26px; letter-spacing:3px; color:#ffd23e; text-shadow:0 0 8px rgba(255,60,60,.8); line-height:1; }
+  #stars .off { color:#5a4460; text-shadow:none; }
+  #clock { margin-top:4px; font-size:13px; font-weight:700; color:#ffe9b0; }
+  #location { font-size:12px; color:#ffb066; }
+  /* right: police response panel */
+  #response { top:150px; right:12px; width:238px; }
+  #response h3 { font-size:11px; letter-spacing:2px; color:#ff5d5d; margin-bottom:6px; }
+  .unit { display:flex; justify-content:space-between; font-size:12px; padding:3px 0;
+    border-top:1px solid rgba(255,255,255,.08); }
+  .unit .u-name { font-weight:700; color:#fff; }
+  .unit .u-dist { color:#ffd76a; }
+  .unit .u-stat { font-weight:700; }
+  .st-pursuit { color:#ff5d5d; } .st-ram { color:#ff9d2f; } .st-road { color:#2fd4ff; }
+  .st-search { color:#ffe95c; } .st-enroute { color:#c9a2ff; }
+  /* bottom-right: speed */
+  #speedo { right:12px; bottom:12px; text-align:right; min-width:200px; }
+  #speedNum { font-size:52px; font-weight:900; line-height:.95; color:#fff;
+    text-shadow:0 2px 0 rgba(0,0,0,.5); }
+  #speedUnit { font-size:13px; color:#ffb066; font-weight:700; }
+  #carName { font-size:14px; font-weight:800; color:#ffe9b0; margin-top:2px; }
+  #carCond { font-size:11px; color:#d8ecff; }
+  /* bottom-left: minimap + weapons */
+  #mapwrap { left:12px; bottom:12px; }
+  #minimap { display:block; border-radius:6px; border:1px solid rgba(255,170,80,.5); }
+  #mapLabel { font-size:10px; letter-spacing:2px; color:#ffb066; margin-top:3px; text-align:center; }
+  #weapons { position:absolute; left:206px; bottom:12px; display:flex; gap:6px; }
+  .slot { width:64px; text-align:center; padding:5px 2px; background:rgba(12,8,20,.72);
+    border:1px solid rgba(255,170,80,.3); border-radius:6px; }
+  .slot.active { border-color:#ffd23e; background:rgba(80,50,10,.8); }
+  .slot .w-name { font-size:10px; font-weight:700; color:#ffe9b0; }
+  .slot .w-ammo { font-size:11px; color:#7dff8a; }
+  .slot.locked { opacity:.45; }
+  /* bottom-center: dialog */
+  #dialog { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); width:520px; display:none;
+    background:rgba(10,6,18,.88); border:1px solid rgba(255,210,110,.5); border-radius:10px;
+    padding:10px 12px; }
+  #dialog.show { display:flex; gap:12px; align-items:flex-start; }
+  #portrait { width:76px; height:76px; border-radius:8px; border:2px solid #ffb066; flex:none; }
+  #dlgName { font-size:14px; font-weight:800; color:#ffd76a; }
+  #dlgText { font-size:13px; line-height:1.45; color:#fff; margin-top:3px; min-height:36px; }
+  #dlgHint { font-size:10px; color:#ffb066; margin-top:4px; letter-spacing:1px; }
+  /* radio */
+  #radio { right:12px; bottom:132px; text-align:right; }
+  #radioStation { font-size:13px; font-weight:800; color:#ffe9b0; }
+  #radioTrack { font-size:11px; color:#d8ecff; }
+  /* toast */
+  #toast { position:absolute; top:64px; left:50%; transform:translateX(-50%); font-size:13px; font-weight:700;
+    color:#7dff8a; background:rgba(10,30,12,.8); border:1px solid #2f7a3d; border-radius:6px;
+    padding:6px 14px; display:none; }
+  /* overlays */
+  .overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(160deg, rgba(40,8,40,.88), rgba(10,4,24,.94)); z-index:20; }
+  .overlay.hidden { display:none; }
+  .card { text-align:center; max-width:640px; padding:30px; }
+  .card h1 { font-size:64px; font-weight:900; letter-spacing:2px; color:#ffd23e;
+    text-shadow:0 4px 0 #b33a00, 0 8px 24px rgba(255,90,0,.5); }
+  .card h2 { font-size:18px; color:#ffb066; letter-spacing:6px; margin:6px 0 18px; }
+  .card p { font-size:14px; line-height:1.6; color:#f2e6ff; margin-bottom:14px; }
+  .card .controls { font-size:12px; color:#c9b8d8; line-height:1.9; margin-bottom:20px; }
+  .btn { display:inline-block; font-size:18px; font-weight:800; letter-spacing:2px; color:#1a0b1e;
+    background:linear-gradient(90deg,#ffd23e,#ff7a2f); border:none; border-radius:8px;
+    padding:12px 34px; cursor:pointer; }
+  .btn:hover { filter:brightness(1.1); }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:10; }
+  #hud.hidden { display:none; }
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="hud" class="hidden">
+  <div id="topleft" class="panel">
+    <div class="label">Cash</div>
+    <div id="money">$2,450</div>
+    <div id="repRow"><span id="repName">ROOKIE</span><div class="bar"><div id="repFill" style="width:12%"></div></div><span id="repText">120/500</span></div>
+    <div class="vitals"><span>HP <b class="hp" id="hpVal">100</b></span><span>ARMOR <b class="ar" id="arVal">0</b></span><span>MISSIONS <b id="misVal">0/6</b></span></div>
+  </div>
+  <div id="objective" class="panel">
+    <div class="label">Current job</div>
+    <div id="objTitle">Free roam — Bahia is yours</div>
+    <div id="objStage"><div id="objFill"></div></div>
+    <div id="objMeta"><span id="objDist">—</span><span id="objTimer"></span><span id="objStep">0/0</span></div>
+  </div>
+  <div id="topright" class="panel">
+    <div id="stars"></div>
+    <div id="clock">FRI 17:24</div>
+    <div id="location">Playa Dorada · Ocean Drive</div>
+  </div>
+  <div id="response" class="panel">
+    <h3>◆ BAHIA PD RESPONSE</h3>
+    <div id="respList"><div class="unit"><span class="u-name">—</span><span class="u-dist">NO UNITS</span></div></div>
+  </div>
+  <div id="speedo" class="panel">
+    <div><span id="speedNum">0</span> <span id="speedUnit">KM/H</span></div>
+    <div id="carName">ON FOOT</div>
+    <div id="carCond"></div>
+  </div>
+  <div id="mapwrap" class="panel"><canvas id="minimap" width="180" height="180"></canvas><div id="mapLabel">BAHIA · MINIMAP</div></div>
+  <div id="weapons"></div>
+  <div id="dialog"><canvas id="portrait" width="76" height="76"></canvas><div><div id="dlgName"></div><div id="dlgText"></div><div id="dlgHint">PRESS E TO CONTINUE</div></div></div>
+  <div id="radio" class="panel"><div id="radioStation">♪ SOL FM 101.9</div><div id="radioTrack">Sunset Synth — "Neon Tide"</div></div>
+  <div id="toast">✓ AUTOSAVED</div>
+</div>
+
+<div id="titleScreen" class="overlay">
+  <div class="card">
+    <h1>BAHIA HEAT</h1>
+    <h2>OPEN-WORLD CRIME · SUNSET COAST</h2>
+    <p>Welcome to <b>Bahia</b> — a sun-soaked coastal city of palm boulevards, beachfront hotels
+    and a police department that never sleeps. Run six jobs for the people who own this town,
+    steal what you need, lose the law, and earn your name on the streets.</p>
+    <div class="controls">
+      WASD drive / walk &nbsp;·&nbsp; E enter / steal car &nbsp;·&nbsp; F punch &nbsp;·&nbsp; G shoot &nbsp;·&nbsp; R reload<br>
+      1–4 weapons &nbsp;·&nbsp; SPACE handbrake &nbsp;·&nbsp; C camera &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M mute
+    </div>
+    <button class="btn" id="startBtn">START ENGINE</button>
+    <p style="margin-top:14px; font-size:12px; color:#c9b8d8;" id="saveNote"></p>
+  </div>
+</div>
+
+<div id="pauseScreen" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size:44px;">PAUSED</h1>
+    <p>Take a breath. The heat will wait.</p>
+    <button class="btn" id="resumeBtn">RESUME</button>
+  </div>
+</div>
+
+<div id="overScreen" class="overlay hidden">
+  <div class="card">
+    <h1 style="font-size:44px;">BUSTED</h1>
+    <p id="overText">The Bahia PD finally caught up with you.</p>
+    <button class="btn" id="retryBtn">TRY AGAIN</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
